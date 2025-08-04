@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en" class="">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Workout Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .set-input-form input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        .set-input-form input[type="number"]::-webkit-outer-spin-button,
+        .set-input-form input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        #edit-modal.hidden {
+            display: none;
+        }
+    </style>
+    <script>
+        // Set theme on initial load based on system preference and listen for changes
+        const matcher = window.matchMedia('(prefers-color-scheme: dark)');
+        
+        function applyTheme(isDark) {
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+
+        // Apply theme on initial load
+        applyTheme(matcher.matches);
+
+        // Listen for changes in system preference
+        matcher.addEventListener('change', (e) => applyTheme(e.matches));
+    </script>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+
+    <header class="bg-white dark:bg-gray-800 shadow-sm">
+        <div class="max-w-4xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+            <button id="edit-program-btn" class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                Edit Program
+            </button>
+            <div class="text-center">
+                <h1 class="text-3xl font-bold leading-tight text-gray-900 dark:text-gray-100">Workout Tracker</h1>
+                <div class="mt-2 flex items-center justify-center gap-4">
+                    <button id="prev-day-btn" class="px-3 py-1 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-lg">&lt;</button>
+                    <div class="flex flex-col items-center">
+                        <h2 id="current-day-header" class="text-lg font-semibold text-gray-700 dark:text-gray-300"></h2>
+                        <button id="today-btn" class="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium">Go to Today</button>
+                    </div>
+                    <button id="next-day-btn" class="px-3 py-1 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-lg">&gt;</button>
+                </div>
+            </div>
+            <button id="download-btn" class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                Download History
+            </button>
+        </div>
+    </header>
+
+    <main id="app" class="max-w-4xl mx-auto py-6 sm:px-6 lg:px-8">
+        <!-- Workout content will be dynamically inserted here -->
+    </main>
+
+    <!-- Edit Program Modal -->
+    <div id="edit-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white dark:bg-gray-800">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">Edit Weekly Program</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Group exercises in a superset by putting them on the same line, separated by a comma.</p>
+                <div id="edit-form-container" class="mt-2 px-7 py-3 space-y-4 text-left"></div>
+                <div class="items-center px-4 py-3">
+                    <button id="save-program-btn" class="px-4 py-2 bg-green-500 text-white text-base font-medium rounded-md w-auto shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-300">Save Changes</button>
+                    <button id="cancel-edit-btn" class="ml-3 px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 text-base font-medium rounded-md w-auto shadow-sm hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-300">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            const app = document.getElementById('app');
+            const currentDayHeader = document.getElementById('current-day-header');
+            const downloadBtn = document.getElementById('download-btn');
+            const editProgramBtn = document.getElementById('edit-program-btn');
+            const editModal = document.getElementById('edit-modal');
+            const editFormContainer = document.getElementById('edit-form-container');
+            const saveProgramBtn = document.getElementById('save-program-btn');
+            const cancelEditBtn = document.getElementById('cancel-edit-btn');
+            const prevDayBtn = document.getElementById('prev-day-btn');
+            const nextDayBtn = document.getElementById('next-day-btn');
+            const todayBtn = document.getElementById('today-btn');
+            
+            let currentWorkoutState = {};
+            let displayedDate = new Date();
+
+            const defaultRoutines = {
+                "Monday": [
+                    ["Bench", "Bent Over Row"],
+                    ["DB Front Raise", "DB Lateral Raise", "DB Rear Delt Raise"],
+                    ["DB Curl", "Triceps Push Down"]
+                ],
+                "Tuesday": [
+                    ["Pullups", "Dips"],
+                    ["Straight Arm Pulldown", "Underhand OH Press"],
+                    ["Undergrip Pull Down", "DB Triceps Over Head Press"]
+                ],
+                "Wednesday": [["Rest"]],
+                "Thursday": [
+                    ["Squats", "DB RDL"],
+                    ["Leg Extension", "Leg Curl"]
+                ],
+                "Friday": [
+                    ["Deadlift", "DB Lunge"],
+                    ["Leg Extension", "Leg Curl"]
+                ],
+                "Saturday": [
+                    ["Ring YTW", "Ring Flies"],
+                    ["Ring Rows"],
+                    ["Ring Pistol Squats"]
+                ],
+                "Sunday": [["Rest"]]
+            };
+
+            const getDateKey = (date) => date.toISOString().split('T')[0];
+            
+            const getLastWeeksDateKey = (date) => {
+                const lastWeek = new Date(date);
+                lastWeek.setDate(lastWeek.getDate() - 7);
+                return getDateKey(lastWeek);
+            };
+            
+            const getDayOfWeek = (date) => date.toLocaleDateString('en-US', { weekday: 'long' });
+
+            const getRoutines = () => JSON.parse(localStorage.getItem('workoutRoutines')) || defaultRoutines;
+            const saveRoutines = (routines) => localStorage.setItem('workoutRoutines', JSON.stringify(routines));
+            const getHistory = () => JSON.parse(localStorage.getItem('workoutHistory')) || {};
+            const saveHistory = (history) => localStorage.setItem('workoutHistory', JSON.stringify(history));
+
+            const loadStateForDate = (date) => {
+                const history = getHistory();
+                currentWorkoutState = JSON.parse(JSON.stringify(history[getDateKey(date)] || {}));
+            };
+
+            const renderWorkout = (dateToRender) => {
+                const dayOfWeek = getDayOfWeek(dateToRender);
+                const routines = getRoutines();
+                const history = getHistory();
+                
+                const lastWeeksDate = getLastWeeksDateKey(dateToRender);
+                const lastWeeksWorkout = history[lastWeeksDate] || {};
+
+                const todaysExerciseGroups = routines[dayOfWeek] || [["Rest"]];
+                
+                currentDayHeader.textContent = `${dayOfWeek}, ${dateToRender.toLocaleDateString()}`;
+                app.innerHTML = '';
+                
+                if (!todaysExerciseGroups || todaysExerciseGroups.length === 0 || todaysExerciseGroups[0][0].toLowerCase() === 'rest') {
+                    app.innerHTML = `<div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 text-center"><h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Rest Day</h2><p class="mt-2 text-gray-600 dark:text-gray-400">Enjoy your break!</p></div>`;
+                    return;
+                }
+
+                todaysExerciseGroups.forEach((superset, index) => {
+                    const supersetContainer = document.createElement('div');
+                    supersetContainer.className = 'border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-4 mb-6';
+                    
+                    const supersetTitle = document.createElement('h3');
+                    supersetTitle.className = 'text-lg font-semibold text-gray-500 dark:text-gray-400 mb-4';
+                    supersetTitle.textContent = superset.length > 1 ? `Superset ${index + 1}` : `Exercise ${index + 1}`;
+                    supersetContainer.appendChild(supersetTitle);
+
+                    superset.forEach(exerciseName => {
+                        const lastWeekData = lastWeeksWorkout[exerciseName] || [];
+                        const loggedSets = currentWorkoutState[exerciseName] || [];
+                        const sanitizedExerciseName = exerciseName.replace(/\s+/g, '-');
+                        
+                        const card = document.createElement('div');
+                        card.className = 'bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-4';
+
+                        let historyHtml = '<p class="text-sm text-gray-500 dark:text-gray-400">No data from last week.</p>';
+                        if (lastWeekData.length > 0) {
+                            historyHtml = '<ul class="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 space-y-1">';
+                            lastWeekData.forEach((set, i) => {
+                                let noteText = set.notes ? ` <span class="text-xs text-gray-500 dark:text-gray-400 italic">- "${set.notes}"</span>` : '';
+                                historyHtml += `<li>Set ${i + 1}: ${set.weight} lbs x ${set.reps} reps${noteText}</li>`;
+                            });
+                            historyHtml += '</ul>';
+                        }
+                        
+                        let loggedSetsHtml = '';
+                        if (loggedSets.length > 0) {
+                             loggedSets.forEach((set, i) => {
+                                let noteHtml = set.notes ? `<span class="w-full text-xs text-gray-500 dark:text-gray-400 italic mt-1 pl-1">"${set.notes}"</span>` : '';
+                                loggedSetsHtml += `
+                                    <li class="bg-gray-100 dark:bg-gray-700 p-2 rounded-md flex justify-between items-center text-sm flex-wrap">
+                                        <span>Set ${i + 1}: ${set.weight} lbs x ${set.reps} reps</span>
+                                        <button data-delete-set="${i}" data-exercise="${exerciseName}" class="text-red-500 hover:text-red-700 font-bold text-lg ml-2">&times;</button>
+                                        ${noteHtml}
+                                    </li>`;
+                            });
+                        }
+
+                        card.innerHTML = `
+                            <h4 class="text-xl font-bold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-3 mb-4">${exerciseName}</h4>
+                            <div class="history-log bg-gray-100 dark:bg-gray-700/50 p-3 rounded-md"><h5 class="font-semibold text-gray-700 dark:text-gray-300">Last Week:</h5>${historyHtml}</div>
+                            <div class="current-log mt-4"><h5 class="font-semibold text-gray-700 dark:text-gray-300">Logged Sets:</h5><ul id="sets-for-${sanitizedExerciseName}" class="mt-2 space-y-2">${loggedSetsHtml}</ul></div>
+                            <div class="set-input-form mt-4 flex flex-wrap items-center gap-3">
+                                <input type="number" placeholder="Weight (lbs)" id="weight-for-${sanitizedExerciseName}" class="block w-24 rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+                                <input type="number" placeholder="Reps" id="reps-for-${sanitizedExerciseName}" class="block w-24 rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+                                <input type="text" placeholder="Notes" id="notes-for-${sanitizedExerciseName}" class="block flex-1 min-w-[150px] rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+                                <button data-add-set="true" data-exercise="${exerciseName}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Add Set</button>
+                            </div>`;
+                        supersetContainer.appendChild(card);
+                    });
+                    app.appendChild(supersetContainer);
+                });
+                
+                const saveButton = document.createElement('button');
+                const dateKey = getDateKey(dateToRender);
+                const isWorkoutSaved = history[dateKey] && Object.keys(history[dateKey]).length > 0;
+                saveButton.textContent = isWorkoutSaved ? 'Update Workout' : 'Save Workout';
+                saveButton.className = 'save-workout-btn w-full mt-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500';
+                app.appendChild(saveButton);
+            };
+            
+            const openEditModal = () => {
+                const routines = getRoutines();
+                editFormContainer.innerHTML = '';
+                const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+                days.forEach(day => {
+                    const exercisesGroups = routines[day] || [];
+                    const exercisesText = exercisesGroups.map(group => group.join(', ')).join('\n');
+                    editFormContainer.insertAdjacentHTML('beforeend', `<div><label for="edit-${day}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">${day}</label><textarea id="edit-${day}" rows="4" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">${exercisesText}</textarea></div>`);
+                });
+                editModal.classList.remove('hidden');
+            };
+
+            const closeEditModal = () => editModal.classList.add('hidden');
+
+            const saveProgram = () => {
+                const newRoutines = {};
+                const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+                days.forEach(day => {
+                    const textarea = document.getElementById(`edit-${day}`);
+                    const lines = textarea.value.split('\n').filter(line => line.trim() !== '');
+                    const exerciseGroups = lines.map(line => line.split(',').map(e => e.trim()).filter(e => e));
+                    newRoutines[day] = exerciseGroups.length > 0 ? exerciseGroups : [["Rest"]];
+                });
+                saveRoutines(newRoutines);
+                closeEditModal();
+                renderWorkout(displayedDate);
+            };
+
+            app.addEventListener('click', (e) => {
+                if (e.target.dataset.addSet) {
+                    const exerciseName = e.target.dataset.exercise;
+                    const sanitizedExerciseName = exerciseName.replace(/\s+/g, '-');
+                    const weightInput = document.getElementById(`weight-for-${sanitizedExerciseName}`);
+                    const repsInput = document.getElementById(`reps-for-${sanitizedExerciseName}`);
+                    const notesInput = document.getElementById(`notes-for-${sanitizedExerciseName}`);
+                    const weight = parseFloat(weightInput.value);
+                    const reps = parseInt(repsInput.value);
+                    const notes = notesInput.value.trim();
+                    if (isNaN(weight) || isNaN(reps) || weight <= 0 || reps <= 0) {
+                        weightInput.classList.add('border-red-500');
+                        repsInput.classList.add('border-red-500');
+                        setTimeout(() => {
+                            weightInput.classList.remove('border-red-500');
+                            repsInput.classList.remove('border-red-500');
+                        }, 2000);
+                        return;
+                    }
+                    if (!currentWorkoutState[exerciseName]) currentWorkoutState[exerciseName] = [];
+                    currentWorkoutState[exerciseName].push({ weight, reps, notes });
+                    repsInput.value = '';
+                    notesInput.value = '';
+                    weightInput.focus();
+                    renderWorkout(displayedDate);
+                }
+
+                if (e.target.dataset.deleteSet) {
+                    const exerciseName = e.target.dataset.exercise;
+                    const setIndex = parseInt(e.target.dataset.deleteSet, 10);
+                    if (currentWorkoutState[exerciseName] && currentWorkoutState[exerciseName][setIndex]) {
+                        currentWorkoutState[exerciseName].splice(setIndex, 1);
+                        renderWorkout(displayedDate);
+                    }
+                }
+                
+                if (e.target.classList.contains('save-workout-btn') && !e.target.disabled) {
+                    const history = getHistory();
+                    const dateKey = getDateKey(displayedDate);
+                    Object.keys(currentWorkoutState).forEach(key => {
+                        if (currentWorkoutState[key].length === 0) delete currentWorkoutState[key];
+                    });
+                    if (Object.keys(currentWorkoutState).length === 0) {
+                        delete history[dateKey];
+                    } else {
+                        history[dateKey] = currentWorkoutState;
+                    }
+                    saveHistory(history);
+                    e.target.textContent = 'Saved!';
+                    e.target.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    e.target.classList.add('bg-blue-500');
+                    setTimeout(() => renderWorkout(displayedDate), 1500);
+                }
+            });
+
+            downloadBtn.addEventListener('click', () => {
+                const history = getHistory();
+                if (Object.keys(history).length === 0) {
+                    downloadBtn.textContent = 'No History!';
+                    downloadBtn.classList.add('bg-red-100', 'text-red-700');
+                    setTimeout(() => {
+                        downloadBtn.textContent = 'Download History';
+                        downloadBtn.classList.remove('bg-red-100', 'text-red-700');
+                    }, 2000);
+                    return;
+                }
+                const historyJson = JSON.stringify(history, null, 2);
+                const blob = new Blob([historyJson], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'workout-history.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+
+            editProgramBtn.addEventListener('click', openEditModal);
+            cancelEditBtn.addEventListener('click', closeEditModal);
+            saveProgramBtn.addEventListener('click', saveProgram);
+
+            prevDayBtn.addEventListener('click', () => {
+                displayedDate.setDate(displayedDate.getDate() - 1);
+                loadStateForDate(displayedDate);
+                renderWorkout(displayedDate);
+            });
+
+            nextDayBtn.addEventListener('click', () => {
+                displayedDate.setDate(displayedDate.getDate() + 1);
+                loadStateForDate(displayedDate);
+                renderWorkout(displayedDate);
+            });
+
+            todayBtn.addEventListener('click', () => {
+                displayedDate = new Date();
+                loadStateForDate(displayedDate);
+                renderWorkout(displayedDate);
+            });
+
+            // Initial Load
+            loadStateForDate(displayedDate);
+            renderWorkout(displayedDate);
+        });
+    </script>
+</body>
+</html>
+
